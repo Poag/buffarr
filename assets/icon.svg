@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="buffarr icon">
+  <title>buffarr</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <!-- app-icon background -->
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="url(#bg)"/>
+
+  <!-- buffering ring: segmented arc, evokes both a media-player buffering
+       spinner (prefetch) and a radar/scan sweep (time-delayed monitoring) -->
+  <circle
+    cx="128" cy="128" r="84"
+    fill="none"
+    stroke="#ffffff"
+    stroke-opacity="0.9"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-dasharray="18 20"
+  />
+
+  <!-- fast-forward glyph: prefetching episodes ahead of playback -->
+  <path d="M100 84 L148 128 L100 172 Z" fill="#ffffff"/>
+  <path d="M138 84 L186 128 L138 172 Z" fill="#ffffff" fill-opacity="0.85"/>
+</svg>

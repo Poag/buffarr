@@ -1,0 +1,59 @@
+# buffarr configuration file (TOML).
+#
+# Use this instead of individual environment variables. Recommended: mount a
+# single Docker volume at /config containing this file as conf/config.toml
+# (or conf/buffarr.toml) and point BUFFARR_CONFIG_DIR=/config at it -- a
+# logs/ folder next to conf/ then also gets rotating log files. Or run with
+# --config /path/to/this/file (a single file, not a directory -- no logs/
+# output that way), equivalent to BUFFARR_CONFIG_FILE. A real environment
+# variable that is also set always takes precedence over the value here.
+#
+# Keys must match the environment variable names documented in the README
+# exactly (case-insensitive). The [section] tables below are purely for
+# readability -- they're flattened away, so `[prefetch] ENABLE_PREFETCH`
+# and a top-level `ENABLE_PREFETCH` are equivalent.
+
+[general]
+TZ = "UTC"
+LOG_LEVEL = "INFO"
+DRY_RUN = true
+WEBHOOK_PORT = 5099
+
+[unmonitor]
+SLEEP_MINUTES = 30
+DELAY_MINUTES = 60
+AUTO_TAG_NAME = "auto-unmonitored"
+IGNORE_TAG_NAME = "ignore"
+SKIP_IF_FILE = true
+
+[unmonitor.radarr]
+ENABLE_RADARR = true
+RADARR_URL = "http://localhost:7878"
+RADARR_API_KEY = "YOUR_KEY"
+PREFERRED_RELEASE = "either"
+IGNORE_INCINEMAS = false
+RADARR_REMONITOR_WINDOW_DAYS = 30
+
+[unmonitor.sonarr]
+ENABLE_SONARR = true
+SONARR_URL = "http://localhost:8989"
+SONARR_API_KEY = "YOUR_KEY"
+SONARR_REMONITOR_WINDOW_DAYS = 14
+SEASON_PACK_MODE = false
+SEASON_PACK_MODE_TAG = "season-pack"
+
+[prefetch]
+# Reuses [unmonitor.sonarr]'s SONARR_URL / SONARR_API_KEY above.
+ENABLE_PREFETCH = false
+MEDIA_SERVER_TYPE = "jellyfin"
+MEDIA_SERVER_URL = "http://localhost:8096"
+MEDIA_SERVER_API_KEY = "YOUR_KEY"
+# MEDIA_SERVER_USERS = ["John", "12345"]
+# MEDIA_SERVER_LIBRARIES = ["TV Shows", "Anime"]
+PREFETCH_INTERVAL = 900
+PREFETCH_NUM = 2
+PREFETCH_REQUEST_SEASONS = true
+PREFETCH_APPEND_TO_QUEUE = false
+PREFETCH_CHECK_AIRED = false
+PREFETCH_CONNECTION_RETRIES = 6
+# PREFETCH_EXCLUDE_TAG = "no-prefetch"

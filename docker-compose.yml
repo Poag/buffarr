@@ -1,0 +1,23 @@
+services:
+  buffarr:
+    image: ghcr.io/poag/buffarr:latest
+    build: .
+    container_name: buffarr
+    ports:
+      - "5099:5099" # Webhook + health-check server
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5099/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    env_file:
+      - .env
+    # Alternative to env_file: mount a single config volume instead, laid
+    # out as /config/conf/config.toml (see config.example.toml) and
+    # /config/logs/ for rotating log files. Not read-only -- buffarr writes
+    # to logs/. The image already defaults BUFFARR_CONFIG_DIR to /config,
+    # so nothing else is needed once this is mounted.
+    # volumes:
+    #   - ./buffarr-config:/config
+    restart: unless-stopped

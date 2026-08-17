@@ -19,12 +19,15 @@ COPY config.example.toml .
 
 # uid 99 / gid 100 match Unraid's own nobody:users convention, so a mounted
 # /config appdata share (typically already owned 99:100 on Unraid) is
-# writable without any extra permission fixing.
-RUN (getent group 100 || groupadd -g 100 users) && \
-    useradd --create-home --uid 99 --gid 100 --shell /usr/sbin/nologin buffarr && \
-    mkdir -p /config && \
-    chown -R buffarr:buffarr /app /config
-USER buffarr
+# writable without any extra permission fixing. No named user/group is
+# created -- useradd/groupadd fail outright if the base image already has
+# any entry at that uid, gid, or name (Debian's base-passwd predefines a
+# "users" group at gid 100, and apt itself creates system accounts like
+# _apt in the same dynamic uid range), and the app never needs a
+# resolvable username, so plain numeric ownership + USER sidesteps the
+# whole class of conflict.
+RUN mkdir -p /config && chown -R 99:100 /app /config
+USER 99:100
 
 EXPOSE 5099
 

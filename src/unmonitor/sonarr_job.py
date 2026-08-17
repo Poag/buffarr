@@ -204,7 +204,8 @@ async def _run_once_inner(session):
                             if not e.get("monitored", False):
                                 title = series_map.get(sid, "Unknown Series")
                                 log.info(
-                                    "MONITOR (season pack): %s – S%02dE%02d – %s",
+                                    "%sMONITOR (season pack): %s – S%02dE%02d – %s",
+                                    "[DRY] " if CONFIG.DRY_RUN else "",
                                     title, season, e.get("episodeNumber", "?"), e.get("title", "Unknown Title"),
                                 )
                                 eps_to_monitor.append(e["id"])
@@ -212,7 +213,8 @@ async def _run_once_inner(session):
                         if season_episodes_added > 0:
                             title = series_map.get(sid, "Unknown Series")
                             log.info(
-                                "SEASON PACK MODE: Re-monitored %d episodes for %s S%02d",
+                                "%sSEASON PACK MODE: Re-monitored %d episodes for %s S%02d",
+                                "[DRY] " if CONFIG.DRY_RUN else "",
                                 season_episodes_added, title, season,
                             )
                             series_to_remove_tag.add(sid)
@@ -224,7 +226,8 @@ async def _run_once_inner(session):
                             if e.get("monitored", False):
                                 title = series_map.get(sid, "Unknown Series")
                                 log.info(
-                                    "UNMONITOR (no air date): %s – S%02dE%02d – %s",
+                                    "%sUNMONITOR (no air date): %s – S%02dE%02d – %s",
+                                    "[DRY] " if CONFIG.DRY_RUN else "",
                                     title, season, e.get("episodeNumber", "?"), e.get("title", "Unknown Title"),
                                 )
                                 eps_to_unmonitor.append(e["id"])
@@ -237,7 +240,8 @@ async def _run_once_inner(session):
                         if now < threshold and e.get("monitored", False):
                             title = series_map.get(sid, "Unknown Series")
                             log.info(
-                                "UNMONITOR: %s – S%02dE%02d – %s (airDate: %s)",
+                                "%sUNMONITOR: %s – S%02dE%02d – %s (airDate: %s)",
+                                "[DRY] " if CONFIG.DRY_RUN else "",
                                 title, season, e.get("episodeNumber", "?"), e.get("title", "Unknown Title"), air,
                             )
                             eps_to_unmonitor.append(e["id"])
@@ -251,7 +255,8 @@ async def _run_once_inner(session):
                     if e.get("monitored", False):
                         title = series_map.get(sid, "Unknown Series")
                         log.info(
-                            "UNMONITOR (no air date): %s – S%02dE%02d – %s",
+                            "%sUNMONITOR (no air date): %s – S%02dE%02d – %s",
+                            "[DRY] " if CONFIG.DRY_RUN else "",
                             title, season, e.get("episodeNumber", "?"), e.get("title", "Unknown Title"),
                         )
                         eps_to_unmonitor.append(e["id"])
@@ -272,14 +277,16 @@ async def _run_once_inner(session):
                     within_window = remonitor_window is None or (now - air_dt) <= remonitor_window
                     if has_auto_tag and within_window and season_monitored:
                         log.info(
-                            "MONITOR: %s – S%02dE%02d – %s (airDate: %s)",
+                            "%sMONITOR: %s – S%02dE%02d – %s (airDate: %s)",
+                            "[DRY] " if CONFIG.DRY_RUN else "",
                             title, season, e.get("episodeNumber", "?"), e.get("title", "Unknown Title"), air,
                         )
                         eps_to_monitor.append(e["id"])
                         series_to_remove_tag.add(sid)
                 elif now < threshold and monitored:
                     log.info(
-                        "UNMONITOR: %s – S%02dE%02d – %s (airDate: %s)",
+                        "%sUNMONITOR: %s – S%02dE%02d – %s (airDate: %s)",
+                        "[DRY] " if CONFIG.DRY_RUN else "",
                         title, season, e.get("episodeNumber", "?"), e.get("title", "Unknown Title"), air,
                     )
                     eps_to_unmonitor.append(e["id"])

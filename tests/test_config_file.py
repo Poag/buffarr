@@ -46,6 +46,36 @@ def test_real_env_var_takes_precedence_over_file(monkeypatch):
     assert os.environ["DELAY_MINUTES"] == "999"
 
 
+def test_overridden_setting_is_reported(monkeypatch, capsys):
+    # Reproduces a real report: DRY_RUN=1 left over in the environment
+    # (e.g. an old unmonitarr env, or an Unraid template default) silently
+    # overrode `DRY_RUN = false` in the config file, with no indication why.
+    monkeypatch.delenv("BUFFARR_CONFIG_FILE", raising=False)
+    monkeypatch.delenv("BUFFARR_CONFIG_DIR", raising=False)
+    monkeypatch.setenv("DRY_RUN", "1")
+    monkeypatch.setenv("BUFFARR_CONFIG", "DRY_RUN = false\n")
+
+    load_config_file()
+
+    assert os.environ["DRY_RUN"] == "1"
+    err = capsys.readouterr().err
+    assert "DRY_RUN" in err
+    assert "env='1'" in err
+    assert "file='false'" in err
+
+
+def test_matching_value_is_not_reported_as_overridden(monkeypatch, capsys):
+    monkeypatch.delenv("BUFFARR_CONFIG_FILE", raising=False)
+    monkeypatch.delenv("BUFFARR_CONFIG_DIR", raising=False)
+    monkeypatch.setenv("DRY_RUN", "false")
+    monkeypatch.setenv("BUFFARR_CONFIG", "DRY_RUN = false\n")
+
+    load_config_file()
+
+    err = capsys.readouterr().err
+    assert "overridden" not in err
+
+
 def test_file_path_is_read(monkeypatch, tmp_path):
     config_path = tmp_path / "config.toml"
     config_path.write_text(

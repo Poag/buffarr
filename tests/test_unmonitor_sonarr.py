@@ -72,6 +72,55 @@ async def test_series_with_delay_tag_uses_override(cfg, caplog):
     assert any("MONITOR" in r.message for r in caplog.records)
 
 
+async def test_dry_run_prefixes_monitor_decision_line(cfg, caplog):
+    """Reproduces a real report: with DRY_RUN=True, the per-episode
+    "MONITOR: ..." decision line had no [DRY] indicator even though the
+    change was never applied -- only the batched PUT log did, so it looked
+    like the episode had actually been monitored when it hadn't."""
+    now = datetime.now(timezone.utc)
+    # cfg's DELAY_MINUTES=120 -- 3 hours ago clears that threshold, so the
+    # episode is eligible to be (dry-run) re-monitored.
+    air_time = (now - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    with aioresponses() as m:
+        m.get("http://sonarr/api/v3/tag", payload=[{"id": 1, "label": "auto-unmonitored"}], repeat=True)
+        m.get(
+            "http://sonarr/api/v3/series",
+            payload=[
+                {
+                    "id": 10,
+                    "title": "Test Series",
+                    "monitored": True,
+                    "tags": [1],  # already carries the auto tag
+                    "seasons": [{"seasonNumber": 1, "monitored": True}],
+                }
+            ],
+            repeat=True,
+        )
+        m.get(
+            EPISODE_URL,
+            payload=[
+                {
+                    "id": 100,
+                    "episodeNumber": 1,
+                    "title": "Pilot",
+                    "airDateUtc": air_time,
+                    "monitored": False,
+                    "hasFile": False,
+                }
+            ],
+            repeat=True,
+        )
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level("INFO", logger="sonarr"):
+                await sonarr_job.run_once(session)
+
+    monitor_lines = [r.message for r in caplog.records if "MONITOR:" in r.message and not r.message.startswith("UN")]
+    assert monitor_lines, "expected a MONITOR decision line"
+    assert all(line.startswith("[DRY] MONITOR:") for line in monitor_lines)
+
+
 async def test_unmonitors_before_air_date(cfg, caplog):
     now = datetime.now(timezone.utc)
     air_time = (now + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -155,7 +204,7 @@ async def test_unmonitored_season_defensively_unmonitors_airing_episode(cfg, cap
             with caplog.at_level("INFO", logger="sonarr"):
                 await sonarr_job.run_once(session)
 
-    unmonitor_lines = [r.message for r in caplog.records if r.message.startswith("UNMONITOR")]
+    unmonitor_lines = [r.message for r in caplog.records if "UNMONITOR" in r.message]
     assert unmonitor_lines, "expected the airing episode in the unmonitored season to be unmonitored"
     dry_run_puts = [r.message for r in caplog.records if "PUT /api/v3/episode/monitor" in r.message]
     assert any('"monitored": false' in msg and '100' in msg for msg in dry_run_puts)
@@ -203,7 +252,12 @@ async def test_unmonitored_season_never_remonitored(cfg, caplog):
             with caplog.at_level("INFO", logger="sonarr"):
                 await sonarr_job.run_once(session)
 
-    assert not any(r.message.startswith("MONITOR:") for r in caplog.records)
+    # "not UNMONITOR" matters: UNMONITOR lines legitimately contain the
+    # substring "MONITOR:", and an optional "[DRY] " prefix (this fixture
+    # runs with DRY_RUN=True) must not hide a real MONITOR line either.
+    assert not any(
+        re.match(r"^(\[DRY\] )?MONITOR:", r.message) for r in caplog.records
+    )
     assert any("SUMMARY: Assessed 1, Managed 0" in r.message for r in caplog.records)
 
 

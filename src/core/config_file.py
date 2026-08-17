@@ -120,10 +120,24 @@ def load_config_file() -> None:
         return
 
     applied = 0
+    overridden = []
     for key, value in _flatten(data).items():
+        file_value = _to_env_str(value)
         # A real environment variable always wins over the file.
         if key not in os.environ:
-            os.environ[key] = _to_env_str(value)
+            os.environ[key] = file_value
             applied += 1
+        elif os.environ[key] != file_value:
+            overridden.append((key, os.environ[key], file_value))
 
     print(f"buffarr: loaded config from {source} ({applied} settings)", file=sys.stderr)
+    if overridden:
+        print(
+            f"buffarr: {len(overridden)} setting(s) in {source} are overridden by "
+            "environment variables already set on the container (a real env var "
+            "always wins over the file) -- remove the env var if you meant the "
+            "file's value to apply:",
+            file=sys.stderr,
+        )
+        for key, env_value, file_value in overridden:
+            print(f"buffarr:   {key} -- env={env_value!r} overrides file={file_value!r}", file=sys.stderr)

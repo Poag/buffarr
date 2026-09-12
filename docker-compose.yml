@@ -13,6 +13,10 @@ services:
       start_period: 10s
     env_file:
       - .env
+    # PUID/PGID (uid/gid the app runs as, default 99:100) live in .env --
+    # see .env.example. Not set here directly so an override in .env isn't
+    # shadowed by a hardcoded value (docker-compose's `environment:` key
+    # takes precedence over `env_file`).
     # Alternative to env_file: mount a single config volume instead, laid
     # out as /config/conf/config.toml (see config.example.toml) and
     # /config/logs/ for rotating log files. Not read-only -- buffarr writes

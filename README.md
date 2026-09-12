@@ -44,26 +44,22 @@ cp .env.example .env  # edit it
 
 ### Unraid
 
-A Community Applications template is at
-[`unraid/buffarr.xml`](unraid/buffarr.xml). To install:
+Add it in the Unraid Docker tab as a standard container using the
+`ghcr.io/poag/buffarr:latest` image (or `docker compose up -d` from this
+repo over SSH):
 
-1. In the Unraid Docker tab, click **Add Container**, switch to **advanced
-   view**, and set **Template repositories** to
-   `https://raw.githubusercontent.com/Poag/buffarr/main/unraid/buffarr.xml`
-   -- or install [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
-   and search for "buffarr" once the template is submitted there.
-2. Fill in `SONARR_URL` / `SONARR_API_KEY` and, if you want prefetch too,
+1. Fill in `SONARR_URL` / `SONARR_API_KEY` and, if you want prefetch too,
    `ENABLE_PREFETCH` + the `MEDIA_SERVER_*` fields. Everything else has a
-   working default -- click **Show more settings** for the rest (Radarr,
-   delay/retention windows, tags, prefetch tuning).
-3. The `/config` path maps to a single appdata folder containing
-   `conf/config.toml` (optional -- see [`config.example.toml`](config.example.toml),
-   an alternative to filling in every field individually) and `logs/`
+   working default (Radarr, delay/retention windows, tags, prefetch tuning).
+2. Map `/config` to a single appdata folder containing `conf/config.toml`
+   (optional -- see [`config.example.toml`](config.example.toml), an
+   alternative to filling in every field individually) and `logs/`
    (rotating log files, written automatically).
 
-The image runs as uid 99 / gid 100, matching Unraid's own `nobody:users`
-convention, so a freshly created appdata folder is writable without any
-permission fixing.
+The image defaults to `PUID=99` / `PGID=100`, matching Unraid's own
+`nobody:users` convention, so a freshly created appdata folder is writable
+without any permission fixing. Set `PUID`/`PGID` env vars to override if
+your appdata share is owned by a different user.
 
 ## How it works
 
@@ -116,6 +112,19 @@ playback sessions. For each TV episode being watched:
 Configuration is via environment variables (see `.env.example` for a
 complete annotated list) or, as an alternative, a TOML config file (see
 `config.example.toml`). Highlights:
+
+### PUID / PGID (Docker only)
+
+| Variable | Default | Description |
+|---|---|---|
+| `PUID` | `99` | Uid the app runs as inside the container |
+| `PGID` | `100` | Gid the app runs as inside the container |
+
+The container starts as root, `chown`s `/config` to `PUID:PGID`, then drops
+privileges before running buffarr -- so a bind-mounted `/config` owned by a
+different host user is still writable. These aren't read by the app itself
+(no `PUID`/`PGID` setting exists outside Docker); the defaults match
+Unraid's `nobody:users`.
 
 ### Using a config file instead of environment variables
 

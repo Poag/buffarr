@@ -13,11 +13,12 @@ on:
    pull_request:
     branches: [ "main" ]
    schedule:
-    # Rebuild weekly (Mondays 03:17 UTC, off the hour to avoid scheduler
-    # congestion) against the default branch, so python:3.12-slim base
-    # image and apt package security patches land in :latest even
-    # without a code push.
-    - cron: '17 3 * * 1'
+    # Cron can't express "first Monday of the month", so this fires
+    # every Monday at 01:30 UTC and the schedule-gate job below skips
+    # all but the first Monday. That gives us a monthly rebuild against
+    # the default branch to pick up new versions of included software,
+    # even without a code push.
+    - cron: '30 1 * * 1'
    workflow_dispatch: {}
 
 env:
@@ -28,7 +29,26 @@ env:
 
 
 jobs:
+  schedule-gate:
+    # Only the schedule trigger needs gating; push/PR/manual runs always proceed.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check if today is the first Monday of the month
+        id: check
+        run: |
+          day=$(date -u +%d)
+          if [ "$day" -le 7 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: [schedule-gate]
+    if: always() && (github.event_name != 'schedule' || needs.schedule-gate.outputs.should_run == 'true')
 
     runs-on: ubuntu-latest
     permissions:
@@ -89,7 +109,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           # Always re-check the registry for a newer python:3.12-slim
           # digest rather than trusting a cached layer -- otherwise the
-          # weekly rebuild above would just reproduce the same image and
+          # monthly rebuild above would just reproduce the same image and
           # never actually pick up base-image security patches.
           pull: true
           tags: ${{ steps.meta.outputs.tags }}

@@ -1,4 +1,14 @@
-from sonarr.client import episode_can_prefetch, episode_has_aired, season_is_fully_aired
+from sonarr.client import Client, episode_can_prefetch, episode_has_aired, season_is_fully_aired
+
+
+def test_client_url_defaults_to_v3():
+    client = Client("http://sonarr:8989", "key", session=None)
+    assert client._url("series") == "http://sonarr:8989/api/v3/series"
+
+
+def test_client_url_honors_api_version_override():
+    client = Client("http://sonarr:8989", "key", session=None, api_version="v5")
+    assert client._url("episode", "monitor") == "http://sonarr:8989/api/v5/episode/monitor"
 
 
 def test_episode_has_aired_no_airdate():

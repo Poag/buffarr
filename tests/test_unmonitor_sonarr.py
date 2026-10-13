@@ -283,3 +283,33 @@ async def test_ignore_tag_skips_series(cfg, caplog):
                 await sonarr_job.run_once(session)
 
     assert any("Assessed 0" in r.message for r in caplog.records)
+
+
+async def test_sonarr_api_version_is_overridable(cfg, caplog, monkeypatch):
+    """Sonarr v5 adds a parallel /api/v5 surface alongside /api/v3 -- make
+    sure SONARR_API_VERSION actually changes the paths buffarr calls,
+    rather than /api/v3 being hardcoded."""
+    monkeypatch.setattr(cfg, "SONARR_API_VERSION", "v5")
+
+    with aioresponses() as m:
+        m.get("http://sonarr/api/v5/tag", payload=[{"id": 1, "label": "auto-unmonitored"}], repeat=True)
+        m.get(
+            "http://sonarr/api/v5/series",
+            payload=[
+                {
+                    "id": 10,
+                    "title": "Test Series",
+                    "monitored": True,
+                    "tags": [],
+                    "seasons": [{"seasonNumber": 1, "monitored": True}],
+                }
+            ],
+            repeat=True,
+        )
+        m.get(re.compile(r"^http://sonarr/api/v5/episode(\?.*)?$"), payload=[], repeat=True)
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level("INFO", logger="sonarr"):
+                await sonarr_job.run_once(session)
+
+    assert any("Assessed 0" in r.message for r in caplog.records)

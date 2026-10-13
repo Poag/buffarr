@@ -115,16 +115,17 @@ def episode_window(season_start: int, episode_start: int, num: int, episodes: li
 
 
 class Client:
-    def __init__(self, base_url: str, api_key: str, session: aiohttp.ClientSession):
+    def __init__(self, base_url: str, api_key: str, session: aiohttp.ClientSession, api_version: str = "v3"):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.session = session
+        self.api_version = api_version
 
     def _headers(self):
         return {"X-Api-Key": self.api_key, "Accept": "application/json"}
 
     def _url(self, *parts: str) -> str:
-        return "/".join([self.base_url, "api", "v3", *parts])
+        return "/".join([self.base_url, "api", self.api_version, *parts])
 
     async def probe(self) -> None:
         async with self.session.get(

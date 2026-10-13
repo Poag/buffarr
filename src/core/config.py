@@ -41,6 +41,10 @@ class Config:
     ENABLE_SONARR = env_bool("ENABLE_SONARR", "1")
     SONARR_URL = os.environ.get("SONARR_URL", "").rstrip("/")
     SONARR_API_KEY = os.environ.get("SONARR_API_KEY", "")
+    # Sonarr v5 adds a parallel /api/v5 surface alongside the existing
+    # /api/v3 one (which is still present and used by default here) --
+    # override if /api/v3 is ever removed in a future Sonarr release.
+    SONARR_API_VERSION = os.environ.get("SONARR_API_VERSION", "v3")
     SEASON_PACK_MODE = env_bool("SEASON_PACK_MODE", "0")
     SEASON_PACK_MODE_TAG = os.environ.get("SEASON_PACK_MODE_TAG", "season-pack")
     SONARR_REMONITOR_WINDOW_DAYS = env_int("SONARR_REMONITOR_WINDOW_DAYS", "14")

@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 
 from core.config import CONFIG
+from sonarr.client import resolve_api_version
 
 log = logging.getLogger("sonarr")
 AIR_FMT = "%Y-%m-%dT%H:%M:%SZ"
@@ -49,10 +50,13 @@ def _api(path: str) -> str:
     return f"{CONFIG.SONARR_URL}{path}"
 
 
-def _v(path: str) -> str:
-    """Build a versioned Sonarr API path, e.g. _v("/tag") -> "/api/v3/tag"
-    (or /api/v5/... if SONARR_API_VERSION is overridden)."""
-    return f"/api/{CONFIG.SONARR_API_VERSION}{path}"
+async def _v(session: aiohttp.ClientSession, path: str) -> str:
+    """Build a versioned Sonarr API path, e.g. _v(session, "/tag") ->
+    "/api/v3/tag" -- the version is auto-detected from the connected
+    instance by default (see sonarr.client.resolve_api_version), or forced
+    via SONARR_API_VERSION."""
+    version = await resolve_api_version(session)
+    return f"/api/{version}{path}"
 
 
 class _DryResponse:
@@ -83,7 +87,7 @@ async def _req(session: aiohttp.ClientSession, method: str, path: str, **kw):
 
 
 async def _tags_map(session):
-    r = await _req(session, "GET", _v("/tag"))
+    r = await _req(session, "GET", await _v(session, "/tag"))
     items = await r.json()
     return {int(t["id"]): t["label"] for t in items}, {t["label"].lower(): int(t["id"]) for t in items}
 
@@ -92,9 +96,9 @@ async def _ensure_tag(session, label, label_to_id):
     if label.lower() in label_to_id:
         return label_to_id[label.lower()]
     if CONFIG.DRY_RUN:
-        log.info('[DRY] POST %s -> {"label": "%s"}', _v("/tag"), label)
+        log.info('[DRY] POST %s -> {"label": "%s"}', await _v(session, "/tag"), label)
         return 999999
-    r = await _req(session, "POST", _v("/tag"), json={"label": label})
+    r = await _req(session, "POST", await _v(session, "/tag"), json={"label": label})
     if r.ok:
         _, rev = await _tags_map(session)
         return rev.get(label.lower())
@@ -115,7 +119,7 @@ async def _run_once_inner(session):
         else None
     )
 
-    series = await (await _req(session, "GET", _v("/series"))).json()
+    series = await (await _req(session, "GET", await _v(session, "/series"))).json()
     series_map = {s["id"]: s["title"] for s in series}
 
     series_with_auto_tag = {s["id"] for s in series if auto_tag_id in s.get("tags", [])}
@@ -165,13 +169,13 @@ async def _run_once_inner(session):
     async def _ensure_series_tagged(sid):
         if CONFIG.DRY_RUN:
             return
-        s = await (await _req(session, "GET", _v(f"/series/{sid}"))).json()
+        s = await (await _req(session, "GET", await _v(session, f"/series/{sid}"))).json()
         if auto_tag_id not in s.get("tags", []):
             s["tags"] = s.get("tags", []) + [auto_tag_id]
-            await _req(session, "PUT", _v(f"/series/{sid}"), json=s)
+            await _req(session, "PUT", await _v(session, f"/series/{sid}"), json=s)
 
     for sid, season, season_monitored in tracked:
-        eps = await (await _req(session, "GET", _v("/episode"), params={"seriesId": sid, "seasonNumber": season})).json()
+        eps = await (await _req(session, "GET", await _v(session, "/episode"), params={"seriesId": sid, "seasonNumber": season})).json()
         # Only monitored-season episodes are candidates for re-monitoring, so
         # only they matter for the tag-keep-alive scan below.
         if season_monitored:
@@ -300,14 +304,14 @@ async def _run_once_inner(session):
 
     if eps_to_unmonitor:
         if CONFIG.DRY_RUN:
-            log.info("[DRY] PUT %s -> %s", _v("/episode/monitor"), json.dumps({"episodeIds": eps_to_unmonitor, "monitored": False}))
+            log.info("[DRY] PUT %s -> %s", await _v(session, "/episode/monitor"), json.dumps({"episodeIds": eps_to_unmonitor, "monitored": False}))
         else:
-            await _req(session, "PUT", _v("/episode/monitor"), json={"episodeIds": eps_to_unmonitor, "monitored": False})
+            await _req(session, "PUT", await _v(session, "/episode/monitor"), json={"episodeIds": eps_to_unmonitor, "monitored": False})
     if eps_to_monitor:
         if CONFIG.DRY_RUN:
-            log.info("[DRY] PUT %s -> %s", _v("/episode/monitor"), json.dumps({"episodeIds": eps_to_monitor, "monitored": True}))
+            log.info("[DRY] PUT %s -> %s", await _v(session, "/episode/monitor"), json.dumps({"episodeIds": eps_to_monitor, "monitored": True}))
         else:
-            await _req(session, "PUT", _v("/episode/monitor"), json={"episodeIds": eps_to_monitor, "monitored": True})
+            await _req(session, "PUT", await _v(session, "/episode/monitor"), json={"episodeIds": eps_to_monitor, "monitored": True})
 
     for sid in series_to_remove_tag:
         should_keep_tag = False
@@ -341,10 +345,10 @@ async def _run_once_inner(session):
             if CONFIG.DRY_RUN:
                 log.info("[DRY] Removing auto-tag from series: %s", series_map.get(sid, f"id:{sid}"))
             else:
-                s = await (await _req(session, "GET", _v(f"/series/{sid}"))).json()
+                s = await (await _req(session, "GET", await _v(session, f"/series/{sid}"))).json()
                 if auto_tag_id in s.get("tags", []):
                     s["tags"] = [t for t in s.get("tags", []) if t != auto_tag_id]
-                    await _req(session, "PUT", _v(f"/series/{sid}"), json=s)
+                    await _req(session, "PUT", await _v(session, f"/series/{sid}"), json=s)
 
     if eps_to_monitor or eps_to_unmonitor:
         log.info(

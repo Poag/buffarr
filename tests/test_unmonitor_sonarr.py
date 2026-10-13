@@ -16,6 +16,9 @@ def cfg(monkeypatch):
     monkeypatch.setattr(CONFIG, "ENABLE_SONARR", True)
     monkeypatch.setattr(CONFIG, "SONARR_URL", "http://sonarr")
     monkeypatch.setattr(CONFIG, "SONARR_API_KEY", "key")
+    # Explicit, not "auto" -- these tests exercise unmonitor behaviour, not
+    # version detection, and don't mock /api/v3/system/status.
+    monkeypatch.setattr(CONFIG, "SONARR_API_VERSION", "v3")
     monkeypatch.setattr(CONFIG, "IGNORE_TAG_NAME", "ignore")
     monkeypatch.setattr(CONFIG, "SKIP_IF_FILE", False)
     monkeypatch.setattr(CONFIG, "AUTO_TAG_NAME", "auto-unmonitored")

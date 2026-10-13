@@ -11,7 +11,44 @@ from typing import Optional
 
 import aiohttp
 
+from core.config import CONFIG
+
 log = logging.getLogger("sonarr")
+
+_cached_api_version: Optional[str] = None
+
+
+async def detect_api_version(session: aiohttp.ClientSession, base_url: str, api_key: str) -> str:
+    """Probe Sonarr's /api/v3/system/status -- kept available across major
+    versions specifically so API consumers can detect the running version --
+    and return "v5" if the connected instance is Sonarr v5+, else "v3"."""
+    url = f"{base_url.rstrip('/')}/api/v3/system/status"
+    headers = {"X-Api-Key": api_key, "Accept": "application/json"}
+    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        resp.raise_for_status()
+        data = await resp.json()
+    version = str(data.get("version", ""))
+    major = int(version.split(".")[0])
+    return "v5" if major >= 5 else "v3"
+
+
+async def resolve_api_version(session: aiohttp.ClientSession) -> str:
+    """CONFIG.SONARR_API_VERSION == "auto" (the default) is resolved once per
+    process via `detect_api_version` and cached here, shared by unmonitor
+    and prefetch since both talk to the same Sonarr instance. An explicit
+    SONARR_API_VERSION always wins and skips detection entirely. A failed
+    detection is never cached, so the next call -- the next scheduled
+    unmonitor pass, or prefetch's own startup connection retries -- tries
+    again instead of getting stuck on a guess."""
+    global _cached_api_version
+    if CONFIG.SONARR_API_VERSION != "auto":
+        return CONFIG.SONARR_API_VERSION
+    if _cached_api_version is not None:
+        return _cached_api_version
+    version = await detect_api_version(session, CONFIG.SONARR_URL, CONFIG.SONARR_API_KEY)
+    log.info("Detected Sonarr API version: %s", version)
+    _cached_api_version = version
+    return version
 
 
 def _parse_air_date(value: Optional[str]):
@@ -128,6 +165,9 @@ class Client:
         return "/".join([self.base_url, "api", self.api_version, *parts])
 
     async def probe(self) -> None:
+        if self.api_version == "auto":
+            self.api_version = await resolve_api_version(self.session)
+            return
         async with self.session.get(
             f"{self.base_url}/api", headers=self._headers()
         ) as resp:

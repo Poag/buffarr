@@ -214,7 +214,7 @@ regular environment variable.
 | `RADARR_REMONITOR_WINDOW_DAYS` | `30` | Only re-monitor movies released within N days (`0` = unlimited) |
 | `ENABLE_SONARR` | `1` | Enable Sonarr unmonitor |
 | `SONARR_URL` / `SONARR_API_KEY` | | Sonarr connection (shared with prefetch) |
-| `SONARR_API_VERSION` | `v3` | Sonarr API path version (shared with prefetch). Sonarr v5 adds `/api/v5` alongside the still-present `/api/v3` -- only change this once `/api/v3` is actually removed in a future Sonarr release |
+| `SONARR_API_VERSION` | `auto` | Sonarr API path version (shared with prefetch). `auto` detects `v3` vs `v5` from the connected instance's reported version (via `/api/v3/system/status`, which both still serve) and caches the result; set `v3`/`v5` explicitly to skip detection |
 | `SEASON_PACK_MODE` | `0` | Re-monitor whole seasons at once |
 | `SEASON_PACK_MODE_TAG` | `season-pack` | Tag marking series that use season-pack mode |
 | `SONARR_REMONITOR_WINDOW_DAYS` | `14` | Only re-monitor episodes aired within N days (`0` = unlimited) |

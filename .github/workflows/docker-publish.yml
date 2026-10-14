@@ -7,7 +7,10 @@ name: Docker
 
 on:
    push:
-    branches: [ "main" ]
+    # "v5" tracks the Sonarr v5 compatibility work (see PR #2) -- builds
+    # from it publish ghcr.io/poag/buffarr:v5 via the type=ref,event=branch
+    # tag rule below, without touching :latest (still gated to main only).
+    branches: [ "main", "v5" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
    pull_request:

@@ -16,6 +16,9 @@ def cfg(monkeypatch):
     monkeypatch.setattr(CONFIG, "ENABLE_SONARR", True)
     monkeypatch.setattr(CONFIG, "SONARR_URL", "http://sonarr")
     monkeypatch.setattr(CONFIG, "SONARR_API_KEY", "key")
+    # Explicit, not "auto" -- these tests exercise unmonitor behaviour, not
+    # version detection, and don't mock /api/v3/system/status.
+    monkeypatch.setattr(CONFIG, "SONARR_API_VERSION", "v3")
     monkeypatch.setattr(CONFIG, "IGNORE_TAG_NAME", "ignore")
     monkeypatch.setattr(CONFIG, "SKIP_IF_FILE", False)
     monkeypatch.setattr(CONFIG, "AUTO_TAG_NAME", "auto-unmonitored")
@@ -277,6 +280,36 @@ async def test_ignore_tag_skips_series(cfg, caplog):
             ],
             repeat=True,
         )
+
+        async with aiohttp.ClientSession() as session:
+            with caplog.at_level("INFO", logger="sonarr"):
+                await sonarr_job.run_once(session)
+
+    assert any("Assessed 0" in r.message for r in caplog.records)
+
+
+async def test_sonarr_api_version_is_overridable(cfg, caplog, monkeypatch):
+    """Sonarr v5 adds a parallel /api/v5 surface alongside /api/v3 -- make
+    sure SONARR_API_VERSION actually changes the paths buffarr calls,
+    rather than /api/v3 being hardcoded."""
+    monkeypatch.setattr(cfg, "SONARR_API_VERSION", "v5")
+
+    with aioresponses() as m:
+        m.get("http://sonarr/api/v5/tag", payload=[{"id": 1, "label": "auto-unmonitored"}], repeat=True)
+        m.get(
+            "http://sonarr/api/v5/series",
+            payload=[
+                {
+                    "id": 10,
+                    "title": "Test Series",
+                    "monitored": True,
+                    "tags": [],
+                    "seasons": [{"seasonNumber": 1, "monitored": True}],
+                }
+            ],
+            repeat=True,
+        )
+        m.get(re.compile(r"^http://sonarr/api/v5/episode(\?.*)?$"), payload=[], repeat=True)
 
         async with aiohttp.ClientSession() as session:
             with caplog.at_level("INFO", logger="sonarr"):

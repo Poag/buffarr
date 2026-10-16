@@ -49,7 +49,7 @@ async def run(session: aiohttp.ClientSession) -> None:
         log.error("ENABLE_PREFETCH is set but MEDIA_SERVER_URL/MEDIA_SERVER_API_KEY are missing")
         return
 
-    sonarr = SonarrClient(CONFIG.SONARR_URL, CONFIG.SONARR_API_KEY, session)
+    sonarr = SonarrClient(CONFIG.SONARR_URL, CONFIG.SONARR_API_KEY, session, CONFIG.SONARR_API_VERSION)
     from core.retry import retry
 
     await retry(CONFIG.PREFETCH_CONNECTION_RETRIES, sonarr.probe)
